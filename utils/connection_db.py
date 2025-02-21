@@ -1,5 +1,6 @@
 import pyodbc
 
+
 def connection(dsn):
     try:
         connection = pyodbc.connect(f'DSN={dsn}')
