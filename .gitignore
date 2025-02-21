@@ -1,5 +1,4 @@
 *.xlsx
-*.txt
 *.jar
 venv/
 config.py

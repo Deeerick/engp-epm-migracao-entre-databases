@@ -11,7 +11,7 @@ def update_management_table(table):
         conn_sql = connection(dsn='BD_UN-BC')
         
         if conn_sql is None:
-            print("Erro ao estabelecer conexão com o banco de dados.")
+            print("Erro ao estabelecer conexão com o banco de dados.\n")
             return
         
         date_att = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -27,10 +27,10 @@ def update_management_table(table):
         conn_sql.commit()
         
     except Exception as e:
-        print(f"Erro ao atualizar a tabela {table}.")
+        print(f"Erro ao atualizar a tabela {table}.\n")
         print(e)
 
     finally:
         conn_sql.close()
-        print(f"Tabela {table} atualizada com sucesso.")
+        print(f"Tabela {table} atualizada com sucesso.\n")
         return
