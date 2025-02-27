@@ -8,78 +8,82 @@ import pyodbc
 import re
 import warnings
 
-from utils.last_update import last_update
+from datetime import datetime
 from utils.update_table import update_management_table
 
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 
 def main():
-    st_tabela_destino = '[BD_UNBCDIGITAL].[biin].[historico_status_medida]'
-    st_coluna_filtro_2 = 'HISO_CD_OBJETO'
-    st_coluna_selecao = 'HISO_CD_OBJETO'
+
+    st_tabela_destino = '[BD_UNBCDIGITAL].[biin].[texto_longo_medida]'
+    st_coluna_filtro_2 = 'TELO_CD_OBJETO'    
+    st_coluna_selecao = 'TELO_CD_OBJETO'
 
     # Locais de instalação a serem consultados
-    lista_loc_instal = ['351902','301081','301049','301059','351401','351402','351901','351701',
-                        '301010','301083','301018','301019','301020','301029','301032','301033',
-                        '301036','301040','301056','301057','303006','301066','301063','301071']
+    lista_loc_instal = [
+                        # '301066','301063', '351902',
+                        '301081',
+                        # '301049','301059','351401','351402',
+                        # '351901','351701','301010','301083','301018','301019','301020','301029',
+                        # '301032','301033','301036','301040','301056','301057','303006','301071'
+                        ]
 
     for loc_instal in lista_loc_instal:
 
         # Conectar ao banco sql
         conn_sql = conexao_sql()
-        
+
         #Verificar a data da ultima atualização da tabela
-        df_last_update = last_update(table='BIIN_HISTORICO_STATUS_MEDIDA', conn=conn_sql)
-        print(f"Última atualização: {df_last_update}")
+        ultima_atualizacao_tabela = ultima_atualizacao(conn_sql, st_tabela_destino)
+        print(f"Última atualização: {ultima_atualizacao_tabela}")
 
         # Importar os dados e colocar no data frame
-        df_tdv = importar_dados_origem(loc_instal, df_last_update)
+        df_tdv = importar_dados_origem(loc_instal, ultima_atualizacao_tabela)
+        # print(df_tdv)
 
         # Substituir valores None e 'NaT' por 'Null', escapar aspas simples e formatar valores para inserção em SQL
-        for column in df_tdv.columns:
-            df_tdv[column] = df_tdv[column].apply(lambda value:
-                            'Null' if value is None or str(value) == 'NaT' else value.replace("'", "''") if "'" in str(value) else value)
+        try:
+            for column in df_tdv.columns:
+                df_tdv[column] = df_tdv[column].apply(lambda value:
+                                'Null' if value is None or str(value) == 'NaT' else value.replace("'", "''") if "'" in str(value) else value)
+                
+        except Exception as e:
+            print(f"Erro: {e}")
+            return False
 
-        dados_filtrados = df_tdv['HISO_CD_OBJETO']
+        dados_filtrados = df_tdv[st_coluna_selecao]
         
         # Carregar resultado da consulta para o dataframe
-        df_sql = importar_dados_destino(dados_filtrados, st_tabela_destino, conn_sql, st_coluna_filtro_2, st_coluna_selecao)
+        df_unbcdigital = importar_dados_destino(dados_filtrados,st_tabela_destino,conn_sql,st_coluna_filtro_2,st_coluna_selecao)
 
         # Exportar os dados data frame para o banco Sql st_server
-        atualizar_tabela_destino(df_sql, df_tdv, st_tabela_destino, conn_sql, st_coluna_filtro_2)
+        atualizar_tabela_destino(df_unbcdigital,df_tdv, st_tabela_destino, conn_sql, st_coluna_filtro_2)     
 
     #Atualizar Gestão Tabelas
-    update_management_table(table='BIIN_HISTORICO_STATUS_MEDIDA')
+    update_management_table(table='BIIN_TEXTO_LONGO_MEDIDA')
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def importar_dados_origem(loc_instal, df_last_update):
+def importar_dados_origem(loc_instal, ultima_atualizacao_tabela):
 
     try:
 
         # Configurações de conexão 
         conn_tdv = conexao_tdv()
 
-        # String query para consulta SQL no oracle
-        if df_last_update:
+        # String query para consulta
+        if ultima_atualizacao_tabela:
 
             query = f"""
                         SELECT 
-                            historico.HISO_CD_OBJETO,
-                            historico.HISO_CD_STATUS_OBJETO,
-                            historico.HISO_QN_MODIFICACAO_STATUS,
-                            historico.HISO_IN_TIPO_STATUS_OBJETO,
-                            historico.HISO_TX_BREVE_STATUS,
-                            historico.HISO_TX_COMPLETO_STATUS,
-                            historico.HISO_CD_USUARIO_MODIFICACAO,
-                            historico.HISO_DT_MODIFICACAO_STATUS,
-                            historico.HISO_CD_TRANSACAO_SAP,
-                            historico.HISO_IN_STATUS_INATIVO,
-                            historico.HISO_IN_TIPO_MODIFICACAO,
-                            historico.HISO_CD_TIPO_OBJETO_TEXT_LONGO,
-                            historico.HISO_DF_ATUALIZACAO_STAGING,
-                            historico.HISO_DF_ATUALIZACAO_ODS
+                            txtlongo.TELO_CD_TABELA_SAP,
+                            txtlongo.TELO_CD_TIPO_TEXTO,
+                            txtlongo.TELO_CD_OBJETO,
+                            txtlongo.TELO_QN_LINHA,
+                            txtlongo.TELO_TX_LINHA,
+                            txtlongo.TELO_DF_ATUALIZACAO_STAGING,
+                            txtlongo.TELO_DF_ATUALIZACAO_ODS
                         FROM (
                             SELECT 
                                 medida.NUMERO_NOTA,
@@ -98,9 +102,6 @@ def importar_dados_origem(loc_instal, df_last_update):
                                 medida.NUMERO_INTERNO_CAUSA,
                                 medida.CODIGO_CATALOGO_MEDIDA,
                                 medida.INDICADOR_MARCACAO_ELIMINACAO,
-                                medida.NUMERO_ORDEM_MANUNTECAO,
-                                medida.CODIGO_CENTRO_SAP_LOCALIZACAO,
-                                medida.CODIGO_LOCALIZACAO,
                                 medida.INDICADOR_CLASSIFICACAO_MEDIDA,
                                 medida.INDICADOR_EXISTE_TEXTO_LONGO,
                                 medida.CODIGO_USUARIO_CRIACAO,
@@ -113,32 +114,25 @@ def importar_dados_origem(loc_instal, df_last_update):
                                 medida.DATA_CONCLUSAO,
                                 medida.DATA_HORA_ATUALIZACAO_STAGING,
                                 medida.DATA_HORA_ATUALIZACAO_ODS
-                            FROM BIIN.BIIN.VW_NOTA_MANUTENCAO_MEDIDA medida
+                            FROM BIIN.VW_NOTA_MANUTENCAO_MEDIDA medida
                             INNER JOIN BIIN.BIIN.VW_NOTA_MANUTENCAO nota 
                                 ON medida.NUMERO_NOTA = nota.NOTA
                             WHERE nota.LOCAL_INSTALACAO LIKE '{loc_instal}%'
                                 AND nota.TIPO_NOTA = 'ZR'
                         ) med
-                        INNER JOIN BIIN.BIIN.VW_BIIN_HISTORICO_STATUS_MEDIDA historico
-                            ON REPLACE(med.NUMERO_OBJETO, ' ', '') = historico.HISO_CD_OBJETO
-                        WHERE historico.HISO_DF_ATUALIZACAO_ODS > TO_DATE('{df_last_update}', 'YYYY-MM-DD HH24:MI:SS')"""
+                        INNER JOIN BIIN.BIIN.VW_BIIN_TEXTO_LONGO_NOTA_MANUTENCAO_MEDIDA txtlongo 
+                            ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txtlongo.TELO_CD_OBJETO, ' ', '')
+                        WHERE txtlongo.TELO_DF_ATUALIZACAO_ODS > TO_DATE('{ultima_atualizacao_tabela}', 'YYYY-MM-DD HH24:MI:SS')"""
         else:
             query = f"""
                         SELECT 
-                            historico.HISO_CD_OBJETO,
-                            historico.HISO_CD_STATUS_OBJETO,
-                            historico.HISO_QN_MODIFICACAO_STATUS,
-                            historico.HISO_IN_TIPO_STATUS_OBJETO,
-                            historico.HISO_TX_BREVE_STATUS,
-                            historico.HISO_TX_COMPLETO_STATUS,
-                            historico.HISO_CD_USUARIO_MODIFICACAO,
-                            historico.HISO_DT_MODIFICACAO_STATUS,
-                            historico.HISO_CD_TRANSACAO_SAP,
-                            historico.HISO_IN_STATUS_INATIVO,
-                            historico.HISO_IN_TIPO_MODIFICACAO,
-                            historico.HISO_CD_TIPO_OBJETO_TEXT_LONGO,
-                            historico.HISO_DF_ATUALIZACAO_STAGING,
-                            historico.HISO_DF_ATUALIZACAO_ODS
+                            txtlongo.TELO_CD_TABELA_SAP,
+                            txtlongo.TELO_CD_TIPO_TEXTO,
+                            txtlongo.TELO_CD_OBJETO,
+                            txtlongo.TELO_QN_LINHA,
+                            txtlongo.TELO_TX_LINHA,
+                            txtlongo.TELO_DF_ATUALIZACAO_STAGING,
+                            txtlongo.TELO_DF_ATUALIZACAO_ODS
                         FROM (
                             SELECT 
                                 medida.NUMERO_NOTA,
@@ -157,9 +151,6 @@ def importar_dados_origem(loc_instal, df_last_update):
                                 medida.NUMERO_INTERNO_CAUSA,
                                 medida.CODIGO_CATALOGO_MEDIDA,
                                 medida.INDICADOR_MARCACAO_ELIMINACAO,
-                                medida.NUMERO_ORDEM_MANUNTECAO,
-                                medida.CODIGO_CENTRO_SAP_LOCALIZACAO,
-                                medida.CODIGO_LOCALIZACAO,
                                 medida.INDICADOR_CLASSIFICACAO_MEDIDA,
                                 medida.INDICADOR_EXISTE_TEXTO_LONGO,
                                 medida.CODIGO_USUARIO_CRIACAO,
@@ -172,17 +163,17 @@ def importar_dados_origem(loc_instal, df_last_update):
                                 medida.DATA_CONCLUSAO,
                                 medida.DATA_HORA_ATUALIZACAO_STAGING,
                                 medida.DATA_HORA_ATUALIZACAO_ODS
-                            FROM BIIN.BIIN.VW_NOTA_MANUTENCAO_MEDIDA medida
-                            INNER JOIN BIIN.BIIN.VW_NOTA_MANUTENCAO nota 
+                            FROM BIIN.VW_NOTA_MANUTENCAO_MEDIDA medida
+                            INNER JOIN BIIN.VW_NOTA_MANUTENCAO nota 
                                 ON medida.NUMERO_NOTA = nota.NOTA
                             WHERE nota.LOCAL_INSTALACAO LIKE '{loc_instal}%'
                                 AND nota.TIPO_NOTA = 'ZR'
                         ) med
-                        INNER JOIN BIIN.BIIN.VW_BIIN_HISTORICO_STATUS_MEDIDA historico 
-                            ON REPLACE(med.NUMERO_OBJETO, ' ', '') = historico.HISO_CD_OBJETO"""
-
+                        INNER JOIN BIIN.BIIN.VW_BIIN_TEXTO_LONGO_NOTA_MANUTENCAO_MEDIDA txtlongo 
+                            ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txtlongo.TELO_CD_OBJETO, ' ', '')"""
+            
         #Carregar consulta sql para o dataframe            
-        df_tdv = pd.read_sql(query, conn_tdv)
+        df_tdv = pd.read_sql(query, conn_tdv)        
         print(f"TDV - {loc_instal} - Total de registros: {len(df_tdv)}")
 
         return df_tdv
@@ -192,22 +183,24 @@ def importar_dados_origem(loc_instal, df_last_update):
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def atualizar_tabela_destino(df_sql, df_tdv, st_tabela_destino, conn, st_coluna_filtro_2, batch_size=250):
+def atualizar_tabela_destino(df_unbcdigital, df_consulta_biin, st_tabela_destino, conn, st_coluna_filtro_2, batch_size=1000):
 
     agrupamento_update = []
     agrupamento_insert = []
+    total_rows = len(df_consulta_biin)
+    counter = 0
 
-    for index, row in df_tdv.iterrows():
+    for index, row in df_consulta_biin.iterrows():
     
         cursor = conn.cursor()
-        st_valor_coluna = row['HISO_CD_OBJETO']
+        st_valor_coluna = row[st_coluna_filtro_2]        
 
-        if st_valor_coluna in df_sql:
+        if st_valor_coluna in df_unbcdigital:
             
-            #Realizar update se ordem existir
+            # Realizar update se ordem existir
             set_clauses = []
             
-            for col in df_tdv.columns:
+            for col in df_consulta_biin.columns:
 
                 if row[col] != 'Null':
                     set_clauses.append(f"{col} = '{row[col]}'")
@@ -229,17 +222,20 @@ def atualizar_tabela_destino(df_sql, df_tdv, st_tabela_destino, conn, st_coluna_
             
         else:
             
-            column_names = df_tdv.columns
+            column_names = df_consulta_biin.columns
             values = [f"'{row[col]}'" if row[col] != 'Null' else 'Null' for col in column_names]
             stValues = f"({', '.join(values)})"
             
-            #agrupamento_insert.append(string_sqlInsert)
             agrupamento_insert.append(stValues)            
 
             if len(agrupamento_insert) >= batch_size:
                 string_sqlInsert = f"INSERT INTO {st_tabela_destino} VALUES {', '.join(agrupamento_insert)}"
                 cursor.execute(string_sqlInsert)
                 agrupamento_insert = []
+
+        counter += 1
+        if counter % batch_size == 0:
+            print(f"Processando registro {counter} de {total_rows}")
 
     if agrupamento_update:
         cursor.execute(string_sqlUpdate)
@@ -249,15 +245,34 @@ def atualizar_tabela_destino(df_sql, df_tdv, st_tabela_destino, conn, st_coluna_
         cursor.execute(string_sqlInsert)
 
     conn.commit()
+    print(f"Processamento concluído. Total de registros processados: {total_rows}")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+def ultima_atualizacao(conn,st_tabela_destino):
+
+    try:
+
+        cursor = conn.cursor()
+        str_sql = f"select data_atualizacao from [bd_unbcdigital].[apo].[GestaoTabelas] where tabela = '{st_tabela_destino}'"        
+        cursor.execute(str_sql)
+        dt_ultima_atualizacao = cursor.fetchone()
+        dt_ultima_atualizacao = dt_ultima_atualizacao.data_atualizacao
+        dt_ultima_atualizacao = dt_ultima_atualizacao.strftime("%Y-%m-%d %H:%M:%S") 
+
+        return dt_ultima_atualizacao
+    except:
+        return False
+
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
 def conexao_sql():
     try:
         conn_sql = pyodbc.connect(DSN='BD_UN-BC')
-        print("Conexão com o banco de dados realizada com sucesso")
+        print("Conexão com o SQL realizada com sucesso")
         return conn_sql
-    except:
+    except Exception as e:
+        print(f"Erro: {e}")
         return False
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -265,14 +280,15 @@ def conexao_sql():
 def conexao_tdv():
     try:
         conn_tdv = pyodbc.connect(DSN='TDV')
-        print("Conexão com o banco de dados realizada com sucesso")
+        print("Conexão com o TDV realizada com sucesso")
         return conn_tdv
-    except:
+    except Exception as e:
+        print(f"Erro: {e}")
         return False
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def importar_dados_destino(dados_filtrados, st_tabela_destino, conn, st_coluna_filtro_2,st_coluna_selecao, batch_size=250):
+def importar_dados_destino(dados_filtrados, st_tabela_destino, conn, st_coluna_filtro_2,st_coluna_selecao, batch_size=1000):
 
     try:
         cursor = conn.cursor()
