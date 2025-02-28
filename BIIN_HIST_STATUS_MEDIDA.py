@@ -1,7 +1,7 @@
-# Programa para atualização da tabela [BD_UNBCDIGITAL].[biin].[nota_manutencao_aco] 
-# Este sistema atualizará a tabela acima para, somente, as notas que contiverem na tabela [BD_UNBCDIGITAL].[biin].[nota_manutencao]
-# É necessário executar o código desta forma, pois a tabela [BD_UNBCDIGITAL].[biin].[nota_manutencao_medida] não possui local de instalação.
-# Não é possivel filtrar diretamente na [BD_UNBCDIGITAL].[biin].[nota_manutencao_medida]  as plataformas da UN-BC
+"""Programa para atualização da tabela [BD_UNBCDIGITAL].[biin].[nota_manutencao_aco] 
+Este sistema atualizará a tabela acima para, somente, as notas que contiverem na tabela [BD_UNBCDIGITAL].[biin].[nota_manutencao]
+É necessário executar o código desta forma, pois a tabela [BD_UNBCDIGITAL].[biin].[nota_manutencao_medida] não possui local de instalação.
+Não é possivel filtrar diretamente na [BD_UNBCDIGITAL].[biin].[nota_manutencao_medida]  as plataformas da UN-BC"""
 
 import pandas as pd
 import pyodbc
