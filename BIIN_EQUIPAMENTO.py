@@ -54,7 +54,7 @@ def import_target_data(loc_instal, conn_sql):
     df_target_data = pd.DataFrame()
     
     try:
-        query = f"SELECT EQUI_CD_EQUIPAMENTO FROM BD_UNBCDIGITAL.BIIN.EQUIPAMENTO WHERE LOIN_NM_LOCAL_INSTALACAO LIKE '{loc_instal}%'"
+        query = f"SELECT * FROM BD_UNBCDIGITAL.BIIN.EQUIPAMENTO WHERE LOIN_NM_LOCAL_INSTALACAO LIKE '{loc_instal}%'"
         df_target_data = pd.read_sql(query, conn_sql)
     except Exception as e:
         print(e)
@@ -64,7 +64,7 @@ def import_target_data(loc_instal, conn_sql):
 
 def create_df_att(df_target_data, df_source_data):
     try:
-        df_merge = df_source_data.merge(df_target_data, on='EQUI_CD_EQUIPAMENTO', how='left', indicator=True)
+        df_merge = df_source_data.merge(df_target_data, on='EQUI_CD_EQUIPAMENTO', how='left', suffixes=('', '_target'), indicator=True)
         df_att = df_merge[df_merge['_merge'] == 'both'].drop(columns=['_merge'])
         df_insert = df_merge[df_merge['_merge'] == 'left_only'].drop(columns=['_merge'])
         return df_att, df_insert
@@ -103,20 +103,56 @@ def insert_data_db(df_insert, conn_sql, loc_instal):
 
 def att_data_db(df_att, conn_sql, loc_instal):
     if df_att.empty:
-        print(f'SEM REGISTROS PARA ATT EM {loc_instal}\n')
+        print(f'SEM REGISTROS PARA UPDATE EM {loc_instal}\n')
         return
     
     try:
-        df_att.to_sql('TEMP_EQUIPAMENTO', conn_sql, schema='BIIN', if_exists='replace', index=False)
+        # Remove a tabela temporária se ela já existir
+        drop_temp_table_query = f"IF OBJECT_ID('[BD_UNBCDIGITAL].[BIIN].[TEMP_EQUIPAMENTO]', 'U') IS NOT NULL DROP TABLE [BD_UNBCDIGITAL].[BIIN].[TEMP_EQUIPAMENTO]"
+        conn_sql.execute(drop_temp_table_query)
+        conn_sql.commit()
+
+        # Cria uma tabela temporária com os dados a serem atualizados
+        temp_table_name = "TEMP_EQUIPAMENTO"
+        create_temp_table_query = f"""
+            CREATE TABLE [BD_UNBCDIGITAL].[BIIN].[{temp_table_name}] (
+                {', '.join([f'{col} NVARCHAR(MAX)' for col in df_att.columns])}
+            )
+        """
+        conn_sql.execute(create_temp_table_query)
+        conn_sql.commit()
+
+        # Insere os dados na tabela temporária
+        insert_temp_table_query = f"INSERT INTO [BD_UNBCDIGITAL].[BIIN].[{temp_table_name}] VALUES "
+        values_string = []
+        for _, row in tqdm(df_att.iterrows(), total=len(df_att), desc="Inserindo dados temporários", unit="registro"):
+            values = [f"'{str(value).replace("'", "''")}'" if pd.notna(value) else 'NULL' for value in row]
+            values_string.append(f"({', '.join(values)})")
+            
+            if len(values_string) == 1000:
+                conn_sql.execute(insert_temp_table_query + ', '.join(values_string))
+                conn_sql.commit()
+                values_string = []
+
+        if values_string:
+            conn_sql.execute(insert_temp_table_query + ', '.join(values_string))
+            conn_sql.commit()
+
+        # Atualiza os registros existentes na tabela de destino
         set_clauses = ', '.join([f"A.{col} = B.{col}" for col in df_att.columns if col != 'EQUI_CD_EQUIPAMENTO'])
-        query = f"""
+        update_query = f"""
             UPDATE A
             SET {set_clauses}
-            FROM BD_UNBCDIGITAL.BIIN.EQUIPAMENTO A
-            INNER JOIN BD_UNBCDIGITAL.BIIN.TEMP_EQUIPAMENTO B
+            FROM [BD_UNBCDIGITAL].[BIIN].[EQUIPAMENTO] A
+            INNER JOIN [BD_UNBCDIGITAL].[BIIN].[{temp_table_name}] B
             ON A.EQUI_CD_EQUIPAMENTO = B.EQUI_CD_EQUIPAMENTO
         """
-        conn_sql.execute(query)
+        conn_sql.execute(update_query)
+        conn_sql.commit()
+
+        # Remove a tabela temporária
+        drop_temp_table_query = f"DROP TABLE [BD_UNBCDIGITAL].[BIIN].[{temp_table_name}]"
+        conn_sql.execute(drop_temp_table_query)
         conn_sql.commit()
         
         print(f'DADOS ATUALIZADOS EM {loc_instal} - {len(df_att)}\n')

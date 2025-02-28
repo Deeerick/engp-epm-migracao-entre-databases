@@ -8,7 +8,6 @@ import pyodbc
 import re
 import warnings
 
-from datetime import datetime
 from utils.update_table import update_management_table
 
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -22,11 +21,9 @@ def main():
 
     # Locais de instalação a serem consultados
     lista_loc_instal = [
-                        # '301066','301063', '351902',
-                        '301081',
-                        # '301049','301059','351401','351402',
-                        # '351901','351701','301010','301083','301018','301019','301020','301029',
-                        # '301032','301033','301036','301040','301056','301057','303006','301071'
+                        '301066','301063', '351902','301081','301049','301059','351401','351402',
+                        '351901','351701','301010','301083','301018','301019','301020','301029',
+                        '301032','301033','301036','301040','301056','301057','303006','301071'
                         ]
 
     for loc_instal in lista_loc_instal:
