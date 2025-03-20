@@ -2,3 +2,4 @@
 *.jar
 venv/
 config.py
+.vscode/

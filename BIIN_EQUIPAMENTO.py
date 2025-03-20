@@ -31,7 +31,7 @@ def main():
             insert_data_db(df_insert, conn_sql, loc_instal)
             att_data_db(df_att, conn_sql, loc_instal)
 
-        update_management_table(table='BIIN_EQUIPAMENTO')
+        update_management_table(table='BIIN_EQUIPAMENTO', conn_sql=conn_sql)
 
 
 def import_source_data(loc_instal, df_last_update, conn_tdv):
