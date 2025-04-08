@@ -3,16 +3,24 @@ import warnings
 
 from tqdm import tqdm
 from utils.connection_db import connection
+from utils.last_update import last_update
+from utils.update_table import update_management_table
 
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 
 def main():
     
-    lista_loc = ['351902', '301081', '301049', '301059', '351401', '351402',
-                 '351901', '351701', '301010', '301083', '301018', '301019',
-                 '301020', '301029', '301032', '301033', '301036', '301040',
-                 '301056', '301057', '303006', '301066', '301063', '301071']
+    lista_loc = [
+        '351902', '301081', '301049', '301059', '351401', '351402',
+        '351901', '351701', '301010', '301083', '301018', '301019',
+        '301020', '301029', '301032', '301033', '301036', '301040',
+        '301056', '301057', '303006', '301066', '301063', '301071'
+    ]
+    
+    conn_sql = connection(dsn='BD_UN-BC')
+    last_update_table = last_update('BIIN_TEXTO_LONGO_MEDIDA', conn_sql)
+    print(f"Última atualizacao: {last_update_table['ULTIMA_ATUALIZACAO'][0]}")
     
     for loc in lista_loc:
         
@@ -65,7 +73,8 @@ def main():
                             AND nota.TIPO_NOTA = 'ZR'
                     ) med
                     INNER JOIN BIIN.BIIN.VW_BIIN_TEXTO_LONGO_NOTA_MANUTENCAO_MEDIDA txtlongo 
-                        ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txtlongo.TELO_CD_OBJETO, ' ', '')"""
+                    ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txtlongo.TELO_CD_OBJETO, ' ', '')
+                    WHERE txtlongo.TELO_DF_ATUALIZACAO_ODS > '{last_update_table['ULTIMA_ATUALIZACAO'][0]}'"""
             
         df = pd.read_sql(query, conn_tdv)
         print(f'{loc} - {len(df)}')
@@ -96,6 +105,10 @@ def main():
 
         conn_sql.commit()
         conn_sql.close()
+        
+    conn_sql = connection(dsn='BD_UN-BC')  
+    update_management_table('BIIN_TEXTO_LONGO_MEDIDA', conn_sql)
+    conn_sql.close()
 
 
 if __name__ == '__main__':
