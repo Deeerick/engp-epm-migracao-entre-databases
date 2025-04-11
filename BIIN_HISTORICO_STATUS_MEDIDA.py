@@ -17,13 +17,13 @@ def main():
                  '301056', '301057', '303006', '301066', '301063', '301071']
     
     conn_sql = connection(dsn='BD_UN-BC')
+    conn_tdv = connection(dsn='TDV')
+    
     last_update_table = last_update('BIIN_HISTORICO_STATUS_MEDIDA', conn_sql)
+    last_update_table = last_update_table['ULTIMA_ATUALIZACAO'][0]
     print(last_update_table)
     
     for loc in lista_loc:
-        
-        conn_tdv = connection(dsn='TDV')
-        conn_sql = connection(dsn='BD_UN-BC')
         
         query = f"""
         SELECT 
@@ -82,7 +82,7 @@ def main():
         ) med
         INNER JOIN BIIN.BIIN.VW_BIIN_HISTORICO_STATUS_MEDIDA historico 
         ON REPLACE(med.NUMERO_OBJETO, ' ', '') = historico.HISO_CD_OBJETO
-        WHERE historico.HISO_DF_ATUALIZACAO_ODS >= '{last_update_table['ULTIMA_ATUALIZACAO'][0]}'"""
+        WHERE historico.HISO_DF_ATUALIZACAO_ODS >= '{last_update_table}'"""
                     
         df = pd.read_sql(query, conn_tdv)
         print(f'{loc} - {len(df)}')
@@ -121,9 +121,7 @@ def main():
             )
 
         conn_sql.commit()
-        conn_sql.close()
-        
-    conn_sql = connection(dsn='BD_UN-BC')    
+
     update_management_table('BIIN_HISTORICO_STATUS_MEDIDA', conn_sql)
     conn_sql.close()
 

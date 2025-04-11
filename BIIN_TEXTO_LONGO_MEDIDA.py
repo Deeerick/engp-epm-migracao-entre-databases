@@ -19,13 +19,13 @@ def main():
     ]
     
     conn_sql = connection(dsn='BD_UN-BC')
-    last_update_table = last_update('BIIN_TEXTO_LONGO_MEDIDA', conn_sql)
-    print(f"Última atualizacao: {last_update_table['ULTIMA_ATUALIZACAO'][0]}")
+    conn_tdv = connection(dsn='TDV')
     
+    last_update_table = last_update('BIIN_TEXTO_LONGO_MEDIDA', conn_sql)
+    last_update_table = last_update_table['ULTIMA_ATUALIZACAO'][0]
+    print(last_update_table)
+
     for loc in lista_loc:
-        
-        conn_tdv = connection(dsn='TDV')
-        conn_sql = connection(dsn='BD_UN-BC')
         
         query = f"""
                     SELECT 
@@ -74,7 +74,7 @@ def main():
                     ) med
                     INNER JOIN BIIN.BIIN.VW_BIIN_TEXTO_LONGO_NOTA_MANUTENCAO_MEDIDA txtlongo 
                     ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txtlongo.TELO_CD_OBJETO, ' ', '')
-                    WHERE txtlongo.TELO_DF_ATUALIZACAO_ODS > '{last_update_table['ULTIMA_ATUALIZACAO'][0]}'"""
+                    WHERE txtlongo.TELO_DF_ATUALIZACAO_ODS > '{last_update_table}'"""
             
         df = pd.read_sql(query, conn_tdv)
         print(f'{loc} - {len(df)}')
@@ -104,9 +104,7 @@ def main():
             )
 
         conn_sql.commit()
-        conn_sql.close()
         
-    conn_sql = connection(dsn='BD_UN-BC')  
     update_management_table('BIIN_TEXTO_LONGO_MEDIDA', conn_sql)
     conn_sql.close()
 
