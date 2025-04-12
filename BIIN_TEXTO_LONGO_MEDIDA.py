@@ -29,52 +29,25 @@ def main():
         
         query = f"""
                     SELECT 
-                        txtlongo.TELO_CD_TABELA_SAP,
-                        txtlongo.TELO_CD_TIPO_TEXTO,
-                        txtlongo.TELO_CD_OBJETO,
-                        txtlongo.TELO_QN_LINHA,
-                        txtlongo.TELO_TX_LINHA,
-                        txtlongo.TELO_DF_ATUALIZACAO_STAGING,
-                        txtlongo.TELO_DF_ATUALIZACAO_ODS
+                        txt.TELO_CD_TABELA_SAP,
+                        txt.TELO_CD_TIPO_TEXTO,
+                        txt.TELO_CD_OBJETO,
+                        txt.TELO_QN_LINHA,
+                        txt.TELO_TX_LINHA,
+                        txt.TELO_DF_ATUALIZACAO_STAGING,
+                        txt.TELO_DF_ATUALIZACAO_ODS
                     FROM (
                         SELECT 
-                            medida.NUMERO_NOTA,
-                            medida.NUMERO_INTERNO_MEDIDA,
-                            medida.NUMERO_MEDIDA,
-                            medida.NUMERO_INTERNO_PARTE,
-                            medida.CODIGO_GRUPO_CODE_MEDIDA,
-                            medida.CODIGO_CODE_MEDIDA,
-                            medida.TEXTO_BREVE_MEDIDA,
-                            medida.TEXTO_STATUS_SISTEMA,
-                            medida.TEXTO_STATUS_USUARIO,
-                            medida.NUMERO_OBJETO,
-                            medida.CODIGO_PARCEIRO_FUNCAO,
-                            medida.CODIGO_PARCEIRO_RESPONSAVEL,
-                            medida.NUMERO_COMPONENTE_AFETADO,
-                            medida.NUMERO_INTERNO_CAUSA,
-                            medida.CODIGO_CATALOGO_MEDIDA,
-                            medida.INDICADOR_MARCACAO_ELIMINACAO,
-                            medida.INDICADOR_CLASSIFICACAO_MEDIDA,
-                            medida.INDICADOR_EXISTE_TEXTO_LONGO,
-                            medida.CODIGO_USUARIO_CRIACAO,
-                            medida.DATA_CRIACAO,
-                            medida.CODIGO_USUARIO_MODIFICACAO,
-                            medida.DATA_MODIFICACAO,
-                            medida.DATA_INICIO_PLANEJADA,
-                            medida.DATA_CONCLUSAO_PLANEJADA,
-                            medida.CODIGO_USUARIO_CONCLUSAO,
-                            medida.DATA_CONCLUSAO,
-                            medida.DATA_HORA_ATUALIZACAO_STAGING,
-                            medida.DATA_HORA_ATUALIZACAO_ODS
+                            medida.NUMERO_OBJETO
                         FROM BIIN.VW_NOTA_MANUTENCAO_MEDIDA medida
                         INNER JOIN BIIN.VW_NOTA_MANUTENCAO nota 
                             ON medida.NUMERO_NOTA = nota.NOTA
                         WHERE nota.LOCAL_INSTALACAO LIKE '{loc}%'
                             AND nota.TIPO_NOTA = 'ZR'
                     ) med
-                    INNER JOIN BIIN.BIIN.VW_BIIN_TEXTO_LONGO_NOTA_MANUTENCAO_MEDIDA txtlongo 
-                    ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txtlongo.TELO_CD_OBJETO, ' ', '')
-                    WHERE txtlongo.TELO_DF_ATUALIZACAO_ODS > '{last_update_table}'"""
+                    INNER JOIN BIIN.BIIN.VW_BIIN_TEXTO_LONGO_NOTA_MANUTENCAO_MEDIDA txt
+                        ON REPLACE(med.NUMERO_OBJETO, ' ', '') = REPLACE(txt.TELO_CD_OBJETO, ' ', '')
+                    WHERE txt.TELO_DF_ATUALIZACAO_ODS > '{last_update_table}'"""
             
         df = pd.read_sql(query, conn_tdv)
         print(f'{loc} - {len(df)}')
