@@ -1,5 +1,6 @@
 import pandas as pd
 import warnings
+
 from tqdm import tqdm
 from utils.last_update import last_update
 from utils.connection_db import connection
