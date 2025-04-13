@@ -251,6 +251,6 @@ def atualizar_no_banco(df_update, conn_sql):
 
 
 if __name__ == '__main__':
-    print('Executando atualizacao dos locais de instalacao...')
+    print('Executando BIIN_LOCAL_INSTALACAO.py...')
     main()
-    print('Locais de instalacao atualizados com sucesso.')
+    print('BIIN_LOCAL_INSTALACAO.py atualizado com sucesso.')
