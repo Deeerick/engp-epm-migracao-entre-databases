@@ -54,7 +54,6 @@ def importar_dados_origem(loc, df_last_update, conn_tdv):
             query = f"SELECT * FROM BIIN.BIIN.VW_NOTA_MANUTENCAO WHERE LOCAL_INSTALACAO like '{loc}%'"
                    
         df_origem = pd.read_sql(query,conn_tdv)
-        print(f"Plataforma: {loc} Total_Linhas: {len(df_origem)}")
 
         return df_origem
     
@@ -159,7 +158,6 @@ def inserir_no_banco(df_insert, conn_sql, batch_size=1000):
     values_strings = []
 
     try:
-        contador = 0
         for index, row in df_insert.iterrows():
             # Use parâmetros e formate a string de valores
             values = ["'{}'".format(str(value).replace("'", "")) if pd.notna(value) else 'NULL' for value in row]
@@ -172,10 +170,6 @@ def inserir_no_banco(df_insert, conn_sql, batch_size=1000):
                 query_values = ', '.join(values_strings)
                 query_full = "{} {};".format(query, query_values)
                 conn_sql.execute(query_full)
-                contador = contador + 1000
-                
-                hora_atual = datetime.now().strftime("%H:%M:%S")
-                print(f"Hora atual: {hora_atual} - linha: {contador}")      
 
                 # Limpe a lista para o próximo lote
                 values_strings = []
@@ -247,6 +241,6 @@ def atualizar_no_banco(df_update, conn_sql):
 
 
 if __name__ == '__main__':
-    print('Executando BIIN_NOTAS_MANUTENCAO.py...')
+    print('Executando BIIN_NOTA_MANUTENCAO.py...')
     main()
-    print('BIIN_NOTAS_MANUTENCAO.py atualizado com sucesso.')
+    print('BIIN_NOTA_MANUTENCAO.py atualizado com sucesso.')
