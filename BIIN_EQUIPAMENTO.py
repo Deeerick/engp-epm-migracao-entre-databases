@@ -65,12 +65,32 @@ def import_target_data(loc_instal, conn_sql):
 
 def create_df_att(df_target_data, df_source_data):
     try:
-        df_merge = df_source_data.merge(df_target_data, on='EQUI_CD_EQUIPAMENTO', how='left', suffixes=('', '_target'), indicator=True)
-        df_att = df_merge[df_merge['_merge'] == 'both'].drop(columns=['_merge'])
-        df_insert = df_merge[df_merge['_merge'] == 'left_only'].drop(columns=['_merge'])
+        # Remover colunas com sufixo _target se existirem
+        target_columns = df_target_data.columns
+        columns_to_drop = [col for col in target_columns if col.endswith('_target')]
+        df_target_data = df_target_data.drop(columns=columns_to_drop, errors='ignore')
+        
+        # Realizar o merge mantendo as colunas da source
+        merge_columns = ['EQUI_CD_EQUIPAMENTO']
+        df_merge = df_source_data.merge(df_target_data, on=merge_columns, how='left', suffixes=('', '_target'), indicator=True)
+        
+        # Separar registros para atualização e inserção
+        df_att = df_merge[df_merge['_merge'] == 'both'].copy()
+        df_insert = df_merge[df_merge['_merge'] == 'left_only'].copy()
+        
+        # Remover colunas de controle e sufixos _target
+        columns_to_drop = [col for col in df_merge.columns if col.endswith('_target')] + ['_merge']
+        df_att = df_att.drop(columns=columns_to_drop, errors='ignore')
+        df_insert = df_insert.drop(columns=columns_to_drop, errors='ignore')
+        
+        # Garantir que apenas as colunas do DataFrame source sejam mantidas
+        columns_to_keep = df_source_data.columns
+        df_att = df_att[columns_to_keep]
+        df_insert = df_insert[columns_to_keep]
+        
         return df_att, df_insert
     except Exception as e:
-        print(e)
+        print(f"Erro em create_df_att: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
 
